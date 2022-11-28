@@ -1,23 +1,39 @@
-const { createMachine, interpret } = require("xstate");
+const { createMachine, interpret, assign, } = require("xstate");
+const { waitFor } = require("xstate/lib/waitFor")
+
+const isValidSpeed = (speed) => speed >= 0 && speed <= 100
+
+const isValidDirection = (direction) => [
+  'up',
+  'down',
+  'left',
+  'right',
+  'upleft',
+  'upright',
+  'downleft',
+  'downright',
+  'stop',
+].includes(direction)
 
 const machine = createMachine({
   predictableActionArguments: true,
   id: "machine",
-  initial: 'turned_off',
+  initial: 'engine_off',
   context: {},
   states: {
-    turned_off: {
+    engine_off: {
       on: {
         TURN_ON: {
-          target: 'turned_on'
+          target: 'engine_on'
         }
       }
     },
-    turned_on: {
+    engine_on: {
       initial: 'init',
       on: {
         TURN_OFF: {
-          target: 'turned_off'
+          actions: 'stop',
+          target: 'engine_off'
         }
       },
       states: {
@@ -32,26 +48,105 @@ const machine = createMachine({
             }
           ],
         },
-        idle: {},
-        travelling: {}
+        idle: {
+          id: "idle",
+          type: "final",
+          on: {
+            CHANGE_SPEED: {
+              actions: ['setSpeed', 'maybeLeave']
+            },
+            CHANGE_DIRECTION: {
+              actions: ['setDirection', 'maybeLeave']
+            },
+            LEAVE: 'travelling'
+          }
+        },
+        travelling: {
+          initial: 'inDirection',
+          states: {
+            inDirection: {
+              on: {
+                CHANGE_SPEED: {
+                  actions: ['setSpeed', 'maybeStop']
+                },
+                CHANGE_DIRECTION: {
+                  actions: ['setDirection', 'maybeStop']
+                },
+                STOP: '#idle'
+              }
+            }
+          }
+        }
       }
     }
   }
 }, {
+  actions: {
+    setSpeed: assign({
+      speed: (ctx, e) => isValidSpeed(e.data.speed)
+        ? e.data.speed
+        : ctx.speed
+    }),
+    setDirection: assign({
+      direction: (ctx, e) => isValidDirection(e.data.direction)
+        ? e.data.direction
+        : ctx.direction
+    }),
+    stop: assign({ speed: () => 0 }),
+    maybeLeave: (ctx, e) => {
+      if (ctx.speed > 0 && ctx.direction != null) send('LEAVE')
+    },
+    maybeStop: (ctx, e) => {
+      if (ctx.speed === 0 || ctx.direction == null) send('STOP')
+    },
+  },
   guards: {
     isTravelling: (ctx) => (ctx.speed > 0 && ctx.direction != null)
   }
 })
 
-
 const service = interpret(machine.withContext({
-  speed: 10,
-  direction: 'left'
-})
-).start()
+  speed: 0,
+  direction: 'right'
+})).start()
 
-console.log(JSON.stringify(service.initialState.value))
+const nextState = service.send('TURN_ON')
 
-const nextState = service.send({ type: 'TURN_ON' })
+// await waitFor(service, (state) => state.done)
 
-console.log(JSON.stringify(nextState.value))
+const spaceship = {
+  ...nextState.context,
+  internalState: JSON.stringify(nextState.value)
+}
+
+console.log(spaceship)
+
+//.onTransition((state) => console.log({transition:state.value}))
+
+// console.log(JSON.stringify(service.initialState.value))
+// console.log(JSON.stringify(service.initialState.context))
+// console.log('---')
+
+// const send = (type, data) => {
+//   const nextState = service.send({ type, data: { ...data } })
+//   console.log(JSON.stringify(nextState.value))
+//   console.log(JSON.stringify(nextState.context))
+//   console.log('---')
+// }
+
+// send('TURN_ON')
+
+// send('CHANGE_SPEED', { speed: 77 })
+
+// send('CHANGE_DIRECTION', { direction: 'left' })
+
+// send('TURN_OFF')
+
+// send('TURN_ON')
+
+// send('CHANGE_SPEED', { speed: 1 })
+
+// send('CHANGE_SPEED', { speed: 0 })
+
+
+
