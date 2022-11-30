@@ -67,6 +67,8 @@ const machine = createMachine({
             'setSpeed',
             'setDestination',
           ],
+          //TODO alleen naar travelling indien course geldig...
+          target: '#travelling',
         },
       },
       states: {
@@ -98,6 +100,7 @@ const machine = createMachine({
           }
         },
         travelling: {
+          id: 'travelling',
           initial: 'init',
           on: {
             STOP: {
@@ -127,6 +130,15 @@ const machine = createMachine({
               }
             },
             toDestination: {
+              on: {
+                GO_TO_NEXT_POSITION: {
+                  actions: [
+                    'determineNewPosition',
+                    'calculateTotalDistanceTravelled',
+                    //'setLocation'
+                  ],
+                },
+              }
             }
           }
         }
@@ -145,7 +157,7 @@ const machine = createMachine({
         ? e.data.direction
         : ctx.direction
     }),
-    setDestination: assign((ctx) => {
+    setDestination: assign((ctx, e) => {
       if (!isValidDestination(e.data.destination)) return ctx
       const dest = {
         destinationX: Number(e.data.destination.x),
@@ -220,9 +232,16 @@ let updated = updateSpaceship(initial, 'TURN_ON')
 
 // updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
 
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'SET_COURSE', {
+  destination: {
+    x: 102,
+    y: 321
+  }
+})
+
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 // TO DO Volgorde:
 // - SET_COURSE
