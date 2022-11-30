@@ -5,7 +5,8 @@ const positioning = {
   determineNewPositionTowardsDirection: (spaceship) => ({
     positionX: spaceship.positionX + spaceship.speed,
     positionY: spaceship.positionY + spaceship.speed,
-  })
+  }),
+  getDistanceToDestination: () => 10
 }
 
 const isValidSpeed = (speed) => speed >= 0 && speed <= 100
@@ -82,7 +83,7 @@ const machine = createMachine({
           }
         },
         travelling: {
-          initial: 'inDirection',
+          initial: 'init',
           on: {
             STOP: {
               actions: 'stop',
@@ -90,18 +91,18 @@ const machine = createMachine({
             }
           },
           states: {
-            inDirection: {
-              on: {
-                CHANGE_SPEED: [{
-                  actions: 'setSpeed',
-                  target: '#idle',
-                  cond: 'isStopping'
-                }, {
-                  actions: 'setSpeed',
-                }],
-                CHANGE_DIRECTION: {
-                  actions: 'setDirection',
+            init: {
+              always: [
+                {
+                  target: 'inDirection',
+                  cond: 'hasDirection'
                 },
+                'toDestination'
+              ]
+            },
+            inDirection: {},
+            toDestination: {
+              on: {
                 GO_TO_NEXT_POSITION: {
                   actions: [
                     'determineNewPosition',
@@ -129,21 +130,16 @@ const machine = createMachine({
         : ctx.direction
     }),
     stop: assign({ speed: () => 0 }),
-    determineNewPosition: assign((ctx) => {
-      let newPosition =
-        positioning.determineNewPositionTowardsDirection(ctx)
-
-      return {
-        ...ctx,
-        positionX: newPosition.positionX,
-        positionY: newPosition.positionY,
-      }
-    }),
-    calculateTotalDistanceTravelled: assign((ctx) => {
-      return {
-        ...ctx,
-        totalDistanceTravelled: ctx.totalDistanceTravelled + ctx.speed,
-      }
+    determineNewPosition: assign((ctx) => ({
+      ...ctx, ...positioning.determineNewPositionTowardsDirection(ctx)
+    })),
+    calculateTotalDistanceTravelled: assign((ctx) => ({
+      ...ctx,
+      totalDistanceTravelled: ctx.totalDistanceTravelled + ctx.speed,
+    })),
+    //TODO setDistanceToDestination gebruik ik nog niet
+    setDistanceToDestination: assign({
+      distanceToDestination: (ctx) => positioning.getDistanceToDestination(ctx)
     }),
   },
   guards: {
@@ -152,6 +148,9 @@ const machine = createMachine({
     isLeaving: (ctx, e) => (e.data.speed > 0 && Boolean(ctx.direction))
       || (ctx.speed > 0 && Boolean(e.data.direction)),
     isStopping: (_, e) => e.data.speed === 0,
+    //TODO hasArrived gebruik ik nog niet
+    //TODO Als je arriveert dan moet speed naar 0
+    hasArrived: (ctx) => positioning.isOnDestination(ctx)
   }
 })
 
@@ -164,7 +163,6 @@ const updateSpaceship = (spaceship, event, data) => {
     : service.send(event)
 
   // await waitFor(service, (state) => state.done)
-
 
   const updatedSpaceship = {
     ...nextState.context,
@@ -183,7 +181,7 @@ const updateSpaceship = (spaceship, event, data) => {
 
 // Turn on the engine
 const initial = {
-  speed: 0,
+  speed: 1,
   direction: 'right',
   positionX: 0,
   positionY: 0,
@@ -192,13 +190,20 @@ const initial = {
 
 let updated = updateSpaceship(initial, 'TURN_ON')
 
-updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
+// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
 
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-
-updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
-
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+
+// TO DO Volgorde:
+// - SET_COURSE
+// - direction string en destination coordinate in zelfde context value, om conflicten te voorkomen?
+// Als de state inDirection en toDestination goed werkt: GO_TO_NEXT_POSITION + arriveren implementeren...
+
+// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
+
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 
 // updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
