@@ -6,7 +6,12 @@ const positioning = {
     positionX: spaceship.positionX + spaceship.speed,
     positionY: spaceship.positionY + spaceship.speed,
   }),
-  getDistanceToDestination: () => 10
+  getDistanceToDestination: () => 10,
+  getDestinationInfo: (x, y) => ({
+    destinationName: 'Planet ' + x + ',' + y,
+    kind: 'kind',
+    color: 'color'
+  })
 }
 
 const isValidSpeed = (speed) => speed >= 0 && speed <= 100
@@ -21,6 +26,8 @@ const isValidDirection = (direction) => [
   'downleft',
   'downright',
 ].includes(direction)
+
+const isValidDestination = (destination) => !isNaN(destination?.x) && !isNaN(destination?.y)
 
 const machine = createMachine({
   predictableActionArguments: true,
@@ -52,6 +59,14 @@ const machine = createMachine({
         TURN_OFF: {
           actions: 'stop',
           target: 'engine_off'
+        },
+        SET_COURSE: {
+          actions: [
+            'clearDirection',
+            'clearLocation',
+            'setSpeed',
+            'setDestination',
+          ],
         },
       },
       states: {
@@ -100,8 +115,7 @@ const machine = createMachine({
                 'toDestination'
               ]
             },
-            inDirection: {},
-            toDestination: {
+            inDirection: {
               on: {
                 GO_TO_NEXT_POSITION: {
                   actions: [
@@ -111,6 +125,8 @@ const machine = createMachine({
                   ],
                 },
               }
+            },
+            toDestination: {
             }
           }
         }
@@ -129,6 +145,18 @@ const machine = createMachine({
         ? e.data.direction
         : ctx.direction
     }),
+    setDestination: assign((ctx) => {
+      if (!isValidDestination(e.data.destination)) return ctx
+      const dest = {
+        destinationX: Number(e.data.destination.x),
+        destinationY: Number(e.data.destination.y),
+      }
+      return {
+        ...ctx,
+        ...dest,
+        ...positioning.getDestinationInfo(dest.destinationX, dest.destinationY),
+      }
+    }),
     stop: assign({ speed: () => 0 }),
     determineNewPosition: assign((ctx) => ({
       ...ctx, ...positioning.determineNewPositionTowardsDirection(ctx)
@@ -137,10 +165,8 @@ const machine = createMachine({
       ...ctx,
       totalDistanceTravelled: ctx.totalDistanceTravelled + ctx.speed,
     })),
-    //TODO setDistanceToDestination gebruik ik nog niet
-    setDistanceToDestination: assign({
-      distanceToDestination: (ctx) => positioning.getDistanceToDestination(ctx)
-    }),
+    clearDirection: assign({ direction: null }),
+    clearLocation: assign({ location: null }),
   },
   guards: {
     isEngineOn: (ctx) => ctx.status?.startsWith('engine_on:'),
@@ -148,6 +174,7 @@ const machine = createMachine({
     isLeaving: (ctx, e) => (e.data.speed > 0 && Boolean(ctx.direction))
       || (ctx.speed > 0 && Boolean(e.data.direction)),
     isStopping: (_, e) => e.data.speed === 0,
+    hasDirection: (ctx) => Boolean(ctx.direction),
     //TODO hasArrived gebruik ik nog niet
     //TODO Als je arriveert dan moet speed naar 0
     hasArrived: (ctx) => positioning.isOnDestination(ctx)
@@ -185,7 +212,8 @@ const initial = {
   direction: 'right',
   positionX: 0,
   positionY: 0,
-  totalDistanceTravelled: 0
+  totalDistanceTravelled: 0,
+  location: null
 }
 
 let updated = updateSpaceship(initial, 'TURN_ON')
@@ -200,18 +228,5 @@ updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 // - SET_COURSE
 // - direction string en destination coordinate in zelfde context value, om conflicten te voorkomen?
 // Als de state inDirection en toDestination goed werkt: GO_TO_NEXT_POSITION + arriveren implementeren...
-
-// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
-
-// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-
-
-// updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
-
-// updated = updateSpaceship(updated, 'STOP')
-
-// updated = updateSpaceship(updated, 'TURN_OFF')
-
-// updated = updateSpaceship(updated, 'TURN_ON')
 
 
