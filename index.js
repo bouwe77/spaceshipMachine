@@ -1,5 +1,12 @@
 const { createMachine, interpret, assign, send } = require("xstate");
-const { waitFor } = require("xstate/lib/waitFor")
+// const { waitFor } = require("xstate/lib/waitFor")
+
+const positioning = {
+  determineNewPositionTowardsDirection: (spaceship) => ({
+    positionX: spaceship.positionX + spaceship.speed,
+    positionY: spaceship.positionY + spaceship.speed,
+  })
+}
 
 const isValidSpeed = (speed) => speed >= 0 && speed <= 100
 
@@ -69,13 +76,9 @@ const machine = createMachine({
             }, {
               actions: 'setSpeed',
             }],
-            CHANGE_DIRECTION: [{
+            CHANGE_DIRECTION: {
               actions: 'setDirection',
-              target: 'travelling',
-              cond: 'isLeaving'
-            }, {
-              actions: 'setDirection',
-            }],
+            },
           }
         },
         travelling: {
@@ -96,13 +99,16 @@ const machine = createMachine({
                 }, {
                   actions: 'setSpeed',
                 }],
-                CHANGE_DIRECTION: [{
+                CHANGE_DIRECTION: {
                   actions: 'setDirection',
-                  target: '#idle',
-                  cond: 'isStopping'
-                }, {
-                  actions: 'setDirection',
-                }],
+                },
+                GO_TO_NEXT_POSITION: {
+                  actions: [
+                    'determineNewPosition',
+                    'calculateTotalDistanceTravelled',
+                    //'setLocation'
+                  ],
+                },
               }
             }
           }
@@ -123,13 +129,29 @@ const machine = createMachine({
         : ctx.direction
     }),
     stop: assign({ speed: () => 0 }),
+    determineNewPosition: assign((ctx) => {
+      let newPosition =
+        positioning.determineNewPositionTowardsDirection(ctx)
+
+      return {
+        ...ctx,
+        positionX: newPosition.positionX,
+        positionY: newPosition.positionY,
+      }
+    }),
+    calculateTotalDistanceTravelled: assign((ctx) => {
+      return {
+        ...ctx,
+        totalDistanceTravelled: ctx.totalDistanceTravelled + ctx.speed,
+      }
+    }),
   },
   guards: {
     isEngineOn: (ctx) => ctx.status?.startsWith('engine_on:'),
     isTravelling: (ctx) => ctx.speed > 0 && Boolean(ctx.direction),
     isLeaving: (ctx, e) => (e.data.speed > 0 && Boolean(ctx.direction))
       || (ctx.speed > 0 && Boolean(e.data.direction)),
-    isStopping: (ctx, e) => e.data.speed === 0,
+    isStopping: (_, e) => e.data.speed === 0,
   }
 })
 
@@ -162,48 +184,29 @@ const updateSpaceship = (spaceship, event, data) => {
 // Turn on the engine
 const initial = {
   speed: 0,
-  direction: 'right'
+  direction: 'right',
+  positionX: 0,
+  positionY: 0,
+  totalDistanceTravelled: 0
 }
 
 let updated = updateSpaceship(initial, 'TURN_ON')
 
-updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 77 })
+updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
 
-updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-updated = updateSpaceship(updated, 'STOP')
+updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
 
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+
+
+// updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
+
+// updated = updateSpaceship(updated, 'STOP')
 
 // updated = updateSpaceship(updated, 'TURN_OFF')
+
 // updated = updateSpaceship(updated, 'TURN_ON')
-
-
-//.onTransition((state) => console.log({transition:state.value}))
-
-// console.log(JSON.stringify(service.initialState.value))
-// console.log(JSON.stringify(service.initialState.context))
-// console.log('---')
-
-// const send = (type, data) => {
-//   const nextState = service.send({ type, data: { ...data } })
-//   console.log(JSON.stringify(nextState.value))
-//   console.log(JSON.stringify(nextState.context))
-//   console.log('---')
-// }
-
-// send('TURN_ON')
-
-// send('CHANGE_SPEED', { speed: 77 })
-
-// send('CHANGE_DIRECTION', { direction: 'left' })
-
-// send('TURN_OFF')
-
-// send('TURN_ON')
-
-// send('CHANGE_SPEED', { speed: 1 })
-
-// send('CHANGE_SPEED', { speed: 0 })
-
 
 
