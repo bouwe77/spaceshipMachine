@@ -31,7 +31,7 @@ const isValidCoordinate = (coordinate) => !isNaN(coordinate?.x) && !isNaN(coordi
 
 const isValidCourse = (course) => {
 
-  
+
   if (typeof course.speed === 'undefined' && typeof course.destination === 'undefined') return false
 
   if (typeof course.speed !== 'undefined') {
@@ -85,8 +85,12 @@ const machine = createMachine({
             'setSpeed',
             'setDestination',
           ],
-          cond: 'isValidCourse',
+          cond: 'isValidCourse', //TODO Niet alleen valid course, maar ook evt. huidige snelheid > 0
           target: '#travelling',
+        },
+        CHANGE_DIRECTION: {
+          actions: 'setDirection',
+          //TODO condition met check op snelheid om te bepalen of je naar indirection moet gaan, of dat het puur het updaten van d direction is
         },
       },
       states: {
@@ -97,13 +101,13 @@ const machine = createMachine({
               cond: 'isTravelling'
             },
             {
-              target: 'idle'
+              target: '#idle'
             }
           ],
         },
         idle: {
           id: "idle",
-          type: "final",
+          //type: "final",
           on: {
             CHANGE_SPEED: [{
               actions: 'setSpeed',
@@ -130,6 +134,7 @@ const machine = createMachine({
             },
           },
           states: {
+            //TODO Deze init state vervangen door overal expliciete transitions? Dus dat elke event zelf moet bepalen of het indrection of todestination moet worden?
             init: {
               always: [
                 {
@@ -203,7 +208,7 @@ const machine = createMachine({
   },
   guards: {
     isEngineOn: (ctx) => ctx.status?.startsWith('engine_on:'),
-    isTravelling: (ctx) => ctx.speed > 0 && Boolean(ctx.direction),
+    isTravelling: (ctx) => ctx.speed > 0 && (Boolean(ctx.direction) || !isNaN(ctx.destinationX)),
     isLeaving: (ctx, e) => (e.data.speed > 0 && Boolean(ctx.direction))
       || (ctx.speed > 0 && Boolean(e.data.direction)),
     isStopping: (_, e) => e.data.speed === 0,
@@ -235,7 +240,6 @@ const updateSpaceship = (spaceship, event, data) => {
   }
 
   console.log(updatedSpaceship)
-
   return updatedSpaceship
 }
 
@@ -252,7 +256,7 @@ const initial = {
 
 let updated = updateSpaceship(initial, 'TURN_ON')
 
- updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
+updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
 
 updated = updateSpaceship(updated, 'SET_COURSE', {
   destination: {
@@ -262,7 +266,13 @@ updated = updateSpaceship(updated, 'SET_COURSE', {
   speed: 12
 })
 
-// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+//updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 77 })
+
+//updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+
+updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
+
+
 // updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 // updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
