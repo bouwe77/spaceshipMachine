@@ -27,7 +27,25 @@ const isValidDirection = (direction) => [
   'downright',
 ].includes(direction)
 
-const isValidDestination = (destination) => !isNaN(destination?.x) && !isNaN(destination?.y)
+const isValidCoordinate = (coordinate) => !isNaN(coordinate?.x) && !isNaN(coordinate?.y)
+
+const isValidCourse = (course) => {
+
+  
+  if (typeof course.speed === 'undefined' && typeof course.destination === 'undefined') return false
+
+  if (typeof course.speed !== 'undefined') {
+    const valid = isValidSpeed(course.speed)
+    if (!valid) return false
+  }
+
+  if (typeof course.destination !== 'undefined') {
+    const valid = isValidCoordinate(course.destination)
+    if (!valid) return false
+  }
+
+  return true
+}
 
 const machine = createMachine({
   predictableActionArguments: true,
@@ -67,7 +85,7 @@ const machine = createMachine({
             'setSpeed',
             'setDestination',
           ],
-          //TODO alleen naar travelling indien course geldig...
+          cond: 'isValidCourse',
           target: '#travelling',
         },
       },
@@ -106,7 +124,10 @@ const machine = createMachine({
             STOP: {
               actions: 'stop',
               target: '#idle',
-            }
+            },
+            CHANGE_SPEED: {
+              actions: 'setSpeed',
+            },
           },
           states: {
             init: {
@@ -158,7 +179,7 @@ const machine = createMachine({
         : ctx.direction
     }),
     setDestination: assign((ctx, e) => {
-      if (!isValidDestination(e.data.destination)) return ctx
+      if (!isValidCoordinate(e.data.destination)) return ctx
       const dest = {
         destinationX: Number(e.data.destination.x),
         destinationY: Number(e.data.destination.y),
@@ -189,7 +210,8 @@ const machine = createMachine({
     hasDirection: (ctx) => Boolean(ctx.direction),
     //TODO hasArrived gebruik ik nog niet
     //TODO Als je arriveert dan moet speed naar 0
-    hasArrived: (ctx) => positioning.isOnDestination(ctx)
+    hasArrived: (ctx) => positioning.isOnDestination(ctx),
+    isValidCourse: (_, e) => isValidCourse(e.data),
   }
 })
 
@@ -230,13 +252,14 @@ const initial = {
 
 let updated = updateSpaceship(initial, 'TURN_ON')
 
-// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
+ updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
 
 updated = updateSpaceship(updated, 'SET_COURSE', {
   destination: {
     x: 102,
     y: 321
-  }
+  },
+  speed: 12
 })
 
 // updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
@@ -244,7 +267,6 @@ updated = updateSpaceship(updated, 'SET_COURSE', {
 // updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 // TO DO Volgorde:
-// - SET_COURSE
 // - direction string en destination coordinate in zelfde context value, om conflicten te voorkomen?
 // Als de state inDirection en toDestination goed werkt: GO_TO_NEXT_POSITION + arriveren implementeren...
 
