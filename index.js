@@ -85,20 +85,27 @@ const machine = createMachine({
             'setSpeed',
             'setDestination',
           ],
-          cond: 'isValidCourse', //TODO Niet alleen valid course, maar ook evt. huidige snelheid > 0
-          target: '#travelling',
+          cond: 'isValidCourse',
+          target: '#toDestination', //TODO alleen naar toDestination indien isTravellingToDestination
         },
-        CHANGE_DIRECTION: {
-          actions: 'setDirection',
-          //TODO condition met check op snelheid om te bepalen of je naar indirection moet gaan, of dat het puur het updaten van d direction is
-        },
+        CHANGE_DIRECTION: [{
+              actions: 'setDirection',
+              cond: 'isTravellingInDirection',
+              target: '#inDirection',
+            }, {
+            actions: 'setDirection'
+          }],
       },
       states: {
         init: {
           always: [
             {
-              target: 'travelling',
-              cond: 'isTravelling'
+              target: '#inDirection',
+              cond: 'isTravellingInDirection'
+            },
+            {
+              target: '#toDestination',
+              cond: 'isTravellingToDestination'
             },
             {
               target: '#idle'
@@ -111,8 +118,12 @@ const machine = createMachine({
           on: {
             CHANGE_SPEED: [{
               actions: 'setSpeed',
-              target: 'travelling',
-              cond: 'isLeaving'
+              target: '#inDirection',
+              cond: 'isTravellingInDirection'
+            }, {
+              actions: 'setSpeed',
+              target: '#toDestination',
+              cond: 'isTravellingToDestination'
             }, {
               actions: 'setSpeed',
             }],
@@ -122,8 +133,6 @@ const machine = createMachine({
           }
         },
         travelling: {
-          id: 'travelling',
-          initial: 'init',
           on: {
             STOP: {
               actions: 'stop',
@@ -134,17 +143,8 @@ const machine = createMachine({
             },
           },
           states: {
-            //TODO Deze init state vervangen door overal expliciete transitions? Dus dat elke event zelf moet bepalen of het indrection of todestination moet worden?
-            init: {
-              always: [
-                {
-                  target: 'inDirection',
-                  cond: 'hasDirection'
-                },
-                'toDestination'
-              ]
-            },
             inDirection: {
+              id: "inDirection",
               on: {
                 GO_TO_NEXT_POSITION: {
                   actions: [
@@ -156,6 +156,7 @@ const machine = createMachine({
               }
             },
             toDestination: {
+              id: "toDestination",
               on: {
                 GO_TO_NEXT_POSITION: {
                   actions: [
@@ -208,14 +209,31 @@ const machine = createMachine({
   },
   guards: {
     isEngineOn: (ctx) => ctx.status?.startsWith('engine_on:'),
-    isTravelling: (ctx) => ctx.speed > 0 && (Boolean(ctx.direction) || !isNaN(ctx.destinationX)),
-    isLeaving: (ctx, e) => (e.data.speed > 0 && Boolean(ctx.direction))
-      || (ctx.speed > 0 && Boolean(e.data.direction)),
-    isStopping: (_, e) => e.data.speed === 0,
+
+    // The current context and/or event data indicates the speceship was (or now is) travelling
+    // in a direction
+    isTravellingInDirection: (ctx, e) => (
+         (e.data?.speed > 0 && Boolean(ctx.direction))
+      || (ctx.speed > 0 && Boolean(e.data?.direction))
+      || (ctx.speed > 0 && Boolean(ctx.direction))),
+    
+    // The current context and/or event data indicates the speceship was (or now is) travelling
+    // to a destination
+    isTravellingToDestination: (ctx, e) => (
+      (e.data?.speed > 0 && !isNaN(ctx.destinationX))
+      || (ctx.speed > 0 && !isNaN(e.data?.destinationX))
+      || (ctx.speed > 0 && !isNaN(ctx.destinationX))),
+
+    // The spaceship had speed, but the event indicates the speed will become 0 now
+    isStopping: (_, e) => (ctx.speed > 0 && e.data.speed === 0),
+    
     hasDirection: (ctx) => Boolean(ctx.direction),
+    
     //TODO hasArrived gebruik ik nog niet
     //TODO Als je arriveert dan moet speed naar 0
+    
     hasArrived: (ctx) => positioning.isOnDestination(ctx),
+    
     isValidCourse: (_, e) => isValidCourse(e.data),
   }
 })
