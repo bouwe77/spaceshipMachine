@@ -1,17 +1,129 @@
-const { createMachine, interpret, assign, send } = require("xstate");
+const { createMachine, interpret, assign, actions } = require("xstate");
 // const { waitFor } = require("xstate/lib/waitFor")
 
+const { choose } = actions
+
+const determineNewPositionCoordinates = (
+  positionX,
+  positionY,
+  speed,
+  destinationX,
+  destinationY,
+) => {
+  let newPositionX = positionX
+  let newPositionY = positionY
+
+  if (positionX < destinationX) {
+    if (speed > destinationX - positionX) speed = destinationX - positionX
+    newPositionX += speed
+  }
+  if (positionX > destinationX) {
+    if (speed > positionX - destinationX) speed = positionX - destinationX
+    newPositionX -= speed
+  }
+
+  if (positionY < destinationY) {
+    if (speed > destinationY - positionY) speed = destinationY - positionY
+    newPositionY += speed
+  }
+  if (positionY > destinationY) {
+    if (speed > positionY - destinationY) speed = positionY - destinationY
+    newPositionY -= speed
+  }
+
+  return { positionX: newPositionX, positionY: newPositionY }
+}
+
 const positioning = {
-  determineNewPositionTowardsDirection: (spaceship) => ({
-    positionX: spaceship.positionX + spaceship.speed,
-    positionY: spaceship.positionY + spaceship.speed,
-  }),
-  getDistanceToDestination: () => 10,
+  determineNewPositionTowardsDirection: (spaceship) => {
+    const destination = {
+      x: spaceship.positionX,
+      y: spaceship.positionY,
+    }
+
+    switch (spaceship.direction) {
+      case 'up':
+        destination.y -= spaceship.speed
+        break
+      case 'down':
+        destination.y += spaceship.speed
+        break
+      case 'left':
+        destination.x -= spaceship.speed
+        break
+      case 'right':
+        destination.x += spaceship.speed
+        break
+      case 'upleft':
+        destination.x -= spaceship.speed
+        destination.y -= spaceship.speed
+        break
+      case 'upright':
+        destination.x += spaceship.speed
+        destination.y -= spaceship.speed
+        break
+      case 'downleft':
+        destination.x -= spaceship.speed
+        destination.y += spaceship.speed
+        break
+      case 'downright':
+        destination.x += spaceship.speed
+        destination.y += spaceship.speed
+        break
+    }
+
+    const newPosition = determineNewPositionCoordinates(
+      spaceship.positionX,
+      spaceship.positionY,
+      spaceship.speed,
+      destination.x,
+      destination.y,
+    )
+
+    return newPosition
+  },
+  determineNewPositionTowardsDestination: (spaceship) => {
+    if (spaceship.speed === 0)
+      return { positionX: spaceship.positionX, positionY: spaceship.positionY }
+
+    const newPosition = determineNewPositionCoordinates(
+      spaceship.positionX,
+      spaceship.positionY,
+      spaceship.speed,
+      spaceship.destinationX,
+      spaceship.destinationY,
+    )
+
+    return newPosition
+  },
+  getDistanceToDestination: (spaceship) => {
+    // Determine the difference between the position and destination X coordinate.
+    let xDiff = 0
+    if (spaceship.destinationX > spaceship.positionX)
+      xDiff = spaceship.destinationX - spaceship.positionX
+    else xDiff = spaceship.positionX - spaceship.destinationX
+
+    // Determine the difference between the position and destination Y coordinate.
+    let yDiff = 0
+    if (spaceship.destinationY > spaceship.positionY)
+      yDiff = spaceship.destinationY - spaceship.positionY
+    else yDiff = spaceship.positionY - spaceship.destinationY
+
+    // The greatest of these two differences is the distance to the destination.
+    return xDiff > yDiff ? xDiff : yDiff
+  },
+  //TODO getDestinationInfo overnemen
   getDestinationInfo: (x, y) => ({
     destinationName: 'Planet ' + x + ',' + y,
     kind: 'kind',
     color: 'color'
-  })
+  }),
+  getLocation: (spaceship) => {
+    return localData.getLocation(
+      spaceship.positionX,
+      spaceship.positionY,
+    )
+  }
 }
 
 const isValidSpeed = (speed) => speed >= 0 && speed <= 100
@@ -89,12 +201,12 @@ const machine = createMachine({
           target: '#toDestination', //TODO alleen naar toDestination indien isTravellingToDestination
         },
         CHANGE_DIRECTION: [{
-              actions: 'setDirection',
-              cond: 'isTravellingInDirection',
-              target: '#inDirection',
-            }, {
-            actions: 'setDirection'
-          }],
+          actions: 'setDirection',
+          cond: 'isTravellingInDirection',
+          target: '#inDirection',
+        }, {
+          actions: 'setDirection'
+        }],
       },
       states: {
         init: {
@@ -148,9 +260,9 @@ const machine = createMachine({
               on: {
                 GO_TO_NEXT_POSITION: {
                   actions: [
-                    'determineNewPosition',
+                    'determineNewPositionTowardsDirection',
                     'calculateTotalDistanceTravelled',
-                    //'setLocation'
+                    'setLocation'
                   ],
                 },
               }
@@ -160,9 +272,15 @@ const machine = createMachine({
               on: {
                 GO_TO_NEXT_POSITION: {
                   actions: [
-                    'determineNewPosition',
+                    'determineNewPositionTowardsDestination',
                     'calculateTotalDistanceTravelled',
-                    //'setLocation'
+                    'setLocation',
+                    choose([{
+                      cond: 'hasArrived',
+                      actions: 'stop'
+                    }, {
+                      actions: 'updateDistanceToDestination'
+                    }])
                   ],
                 },
               }
@@ -196,8 +314,11 @@ const machine = createMachine({
         ...positioning.getDestinationInfo(dest.destinationX, dest.destinationY),
       }
     }),
-    stop: assign({ speed: () => 0 }),
-    determineNewPosition: assign((ctx) => ({
+    stop: assign({
+      speed: () => 0,
+      distanceToDestination: () => 0,
+    }),
+    determineNewPositionTowardsDirection: assign((ctx) => ({
       ...ctx, ...positioning.determineNewPositionTowardsDirection(ctx)
     })),
     calculateTotalDistanceTravelled: assign((ctx) => ({
@@ -206,6 +327,10 @@ const machine = createMachine({
     })),
     clearDirection: assign({ direction: null }),
     clearLocation: assign({ location: null }),
+    setLocation: assign({ location: () => getLocation(ctx) }),
+    updateDistanceToDestination: assign({
+      distanceToDestination: () => positioning.getDistanceToDestination(spaceship)
+    })
   },
   guards: {
     isEngineOn: (ctx) => ctx.status?.startsWith('engine_on:'),
@@ -213,10 +338,10 @@ const machine = createMachine({
     // The current context and/or event data indicates the speceship was (or now is) travelling
     // in a direction
     isTravellingInDirection: (ctx, e) => (
-         (e.data?.speed > 0 && Boolean(ctx.direction))
-      || (ctx.speed > 0 && Boolean(e.data?.direction))
+      (e.data?.speed > 0 && Boolean(ctx.direction))
+        (ctx.speed > 0 && Boolean(e.data?.direction))
       || (ctx.speed > 0 && Boolean(ctx.direction))),
-    
+
     // The current context and/or event data indicates the speceship was (or now is) travelling
     // to a destination
     isTravellingToDestination: (ctx, e) => (
@@ -226,14 +351,11 @@ const machine = createMachine({
 
     // The spaceship had speed, but the event indicates the speed will become 0 now
     isStopping: (_, e) => (ctx.speed > 0 && e.data.speed === 0),
-    
+
     hasDirection: (ctx) => Boolean(ctx.direction),
-    
-    //TODO hasArrived gebruik ik nog niet
-    //TODO Als je arriveert dan moet speed naar 0
-    
+
     hasArrived: (ctx) => positioning.isOnDestination(ctx),
-    
+
     isValidCourse: (_, e) => isValidCourse(e.data),
   }
 })
@@ -295,7 +417,6 @@ updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
 // updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 // TO DO Volgorde:
-// - direction string en destination coordinate in zelfde context value, om conflicten te voorkomen?
 // Als de state inDirection en toDestination goed werkt: GO_TO_NEXT_POSITION + arriveren implementeren...
 
 
