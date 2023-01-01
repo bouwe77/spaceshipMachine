@@ -3,6 +3,10 @@ const { createMachine, interpret, assign, actions } = require("xstate");
 
 const { choose } = actions
 
+const localData = {
+  getLocation: () => null,
+}
+
 const determineNewPositionCoordinates = (
   positionX,
   positionY,
@@ -123,7 +127,11 @@ const positioning = {
       spaceship.positionX,
       spaceship.positionY,
     )
-  }
+  },
+  isOnDestination: (spaceship) =>
+    spaceship.positionX === spaceship.destinationX &&
+    spaceship.positionY === spaceship.destinationY
+
 }
 
 const isValidSpeed = (speed) => speed >= 0 && speed <= 100
@@ -321,15 +329,18 @@ const machine = createMachine({
     determineNewPositionTowardsDirection: assign((ctx) => ({
       ...ctx, ...positioning.determineNewPositionTowardsDirection(ctx)
     })),
+    determineNewPositionTowardsDestination: assign((ctx) => ({
+      ...ctx, ...positioning.determineNewPositionTowardsDestination(ctx)
+    })),
     calculateTotalDistanceTravelled: assign((ctx) => ({
       ...ctx,
       totalDistanceTravelled: ctx.totalDistanceTravelled + ctx.speed,
     })),
     clearDirection: assign({ direction: null }),
     clearLocation: assign({ location: null }),
-    setLocation: assign({ location: () => getLocation(ctx) }),
+    setLocation: assign({ location: (ctx) => positioning.getLocation(ctx) }),
     updateDistanceToDestination: assign({
-      distanceToDestination: () => positioning.getDistanceToDestination(spaceship)
+      distanceToDestination: (ctx) => positioning.getDistanceToDestination(ctx)
     })
   },
   guards: {
@@ -339,7 +350,7 @@ const machine = createMachine({
     // in a direction
     isTravellingInDirection: (ctx, e) => (
       (e.data?.speed > 0 && Boolean(ctx.direction))
-        (ctx.speed > 0 && Boolean(e.data?.direction))
+      || (ctx.speed > 0 && Boolean(e.data?.direction))
       || (ctx.speed > 0 && Boolean(ctx.direction))),
 
     // The current context and/or event data indicates the speceship was (or now is) travelling
@@ -359,7 +370,6 @@ const machine = createMachine({
     isValidCourse: (_, e) => isValidCourse(e.data),
   }
 })
-
 
 const updateSpaceship = (spaceship, event, data) => {
   const service = interpret(machine.withContext(spaceship)).start()
@@ -406,10 +416,12 @@ updated = updateSpaceship(updated, 'SET_COURSE', {
   speed: 12
 })
 
-//updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 77 })
+updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 77 })
 
-//updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
+//TODO Hier was ik: Deze evenet moet de destination clearen
+//TODO Waar wordt deze event uberhaupt afgevangen?
 updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
 
 
