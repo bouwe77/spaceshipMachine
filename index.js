@@ -1,10 +1,11 @@
-const { createMachine, interpret, assign, actions } = require("xstate");
-// const { waitFor } = require("xstate/lib/waitFor")
+import { createMachine, interpret, assign, actions } from "xstate"
 
 const { choose } = actions
 
+// This localData is a stub implementation
 const localData = {
-  getLocation: () => null,
+  getLocation: (x, y) => null,
+  getSpaceObject: (spaceObjectName) => null,
 }
 
 const determineNewPositionCoordinates = (
@@ -116,12 +117,25 @@ const positioning = {
     // The greatest of these two differences is the distance to the destination.
     return xDiff > yDiff ? xDiff : yDiff
   },
-  //TODO getDestinationInfo overnemen
-  getDestinationInfo: (x, y) => ({
-    destinationName: 'Planet ' + x + ',' + y,
-    destinationKind: 'kind',
-    destinationColor: 'color'
-  }),
+  getDestinationInfo: (localData, x, y) => {
+    // Kinds of destinations:
+    // - "planet" = Landing on a planet surface coord
+    // - "spacestation = landing on a spacestation surface coord
+    // - "orbit" = flying in orbit around a planet
+    // - "" or "space" = Just somewhere in space...
+
+    const spaceObjectName = localData.getLocation(x, y)
+    if (!spaceObjectName) return { kind: 'space' }
+
+    const spaceObject = localData.getSpaceObject(spaceObjectName)
+    if (!spaceObject) return { kind: 'space' }
+
+    return {
+      name: spaceObject.name,
+      kind: spaceObject.kind,
+      color: spaceObject.color,
+    }
+  },
   clearDestination: (spaceship) => {
     const updated = { ...spaceship }
     updated.destinationX = null
@@ -133,7 +147,7 @@ const positioning = {
     return updated
   },
   clearDirection: (spaceship) => {
-    const updated = {...spaceship }
+    const updated = { ...spaceship }
     updated.direction = null
     return updated
   },
@@ -210,16 +224,22 @@ const machine = createMachine({
           actions: 'stop',
           target: 'engine_off'
         },
-        SET_COURSE: {
+        SET_COURSE: [{
           actions: [
             'clearDirection',
             'clearLocation',
             'setSpeed',
             'setDestination',
           ],
-          cond: 'isValidCourse',
-          target: '#toDestination', //TODO alleen naar toDestination indien isTravellingToDestination
-        },
+          cond: 'isTravellingToDestination',
+          target: '#toDestination',
+        }, {
+          actions: [
+            'clearDirection',
+            'setSpeed',
+            'setDestination',
+          ],
+        }],
         CHANGE_DIRECTION: [{
           actions: ['clearDestination', 'setDirection'],
           cond: 'isTravellingInDirection',
@@ -246,7 +266,6 @@ const machine = createMachine({
         },
         idle: {
           id: "idle",
-          //type: "final",
           on: {
             CHANGE_SPEED: [{
               actions: 'setSpeed',
@@ -390,8 +409,6 @@ const updateSpaceship = (spaceship, event, data) => {
     ? service.send({ type: event, data: { ...data } })
     : service.send(event)
 
-  // await waitFor(service, (state) => state.done)
-
   const updatedSpaceship = {
     ...nextState.context,
     status: JSON.stringify(nextState.value)
@@ -442,6 +459,6 @@ updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 // TO DO Volgorde:
-// Als de state inDirection en toDestination goed werkt: GO_TO_NEXT_POSITION + arriveren implementeren...
+// GO_TO_NEXT_POSITION + arriveren implementeren...
 
 
