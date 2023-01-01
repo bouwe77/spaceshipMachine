@@ -124,15 +124,17 @@ const positioning = {
   }),
   clearDestination: (spaceship) => {
     const updated = { ...spaceship }
-    updated.destinationX = undefined
-    updated.destinationY = undefined
-    updated.distanceToDestination = undefined
-    updated.destinationName = undefined
-    updated.destinationKind = undefined
-    updated.destinationColor = undefined
-
-console.log('🚨', updated)
-    
+    updated.destinationX = null
+    updated.destinationY = null
+    updated.distanceToDestination = null
+    updated.destinationName = null
+    updated.destinationKind = null
+    updated.destinationColor = null
+    return updated
+  },
+  clearDirection: (spaceship) => {
+    const updated = {...spaceship }
+    updated.direction = null
     return updated
   },
   getLocation: (spaceship) => {
@@ -332,6 +334,9 @@ const machine = createMachine({
     clearDestination: assign((ctx) => ({
       ...ctx, ...positioning.clearDestination(ctx)
     })),
+    clearDirection: assign((ctx) => ({
+      ...ctx, ...positioning.clearDirection(ctx)
+    })),
     stop: assign({
       speed: () => 0,
       distanceToDestination: () => 0,
@@ -346,7 +351,6 @@ const machine = createMachine({
       ...ctx,
       totalDistanceTravelled: ctx.totalDistanceTravelled + ctx.speed,
     })),
-    clearDirection: assign({ direction: null }),
     clearLocation: assign({ location: null }),
     setLocation: assign({ location: (ctx) => positioning.getLocation(ctx) }),
     updateDistanceToDestination: assign({
@@ -356,15 +360,13 @@ const machine = createMachine({
   guards: {
     isEngineOn: (ctx) => ctx.status?.startsWith('engine_on:'),
 
-    // The current context and/or event data indicates the speceship was (or now is) travelling
-    // in a direction
+    // The current context and/or event data indicates the speceship was (or now is) travelling in a direction
     isTravellingInDirection: (ctx, e) => (
       (e.data?.speed > 0 && Boolean(ctx.direction))
       || (ctx.speed > 0 && Boolean(e.data?.direction))
       || (ctx.speed > 0 && Boolean(ctx.direction))),
 
-    // The current context and/or event data indicates the speceship was (or now is) travelling
-    // to a destination
+    // The current context and/or event data indicates the speceship was (or now is) travelling to a destination
     isTravellingToDestination: (ctx, e) => (
       (e.data?.speed > 0 && !isNaN(ctx.destinationX))
       || (ctx.speed > 0 && !isNaN(e.data?.destinationX))
@@ -428,14 +430,16 @@ updated = updateSpaceship(updated, 'SET_COURSE', {
 
 // updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 77 })
 
-//updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-//TODO CHANGE_DIRECTION moet de destination clearen
 updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
 
 
-// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 // TO DO Volgorde:
 // Als de state inDirection en toDestination goed werkt: GO_TO_NEXT_POSITION + arriveren implementeren...
