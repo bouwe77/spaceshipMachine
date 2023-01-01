@@ -2,11 +2,13 @@ import { createMachine, interpret, assign, actions } from "xstate"
 
 const { choose } = actions
 
-// This localData is a stub implementation
+// Stub implementation for localData
 const localData = {
   getLocation: (x, y) => null,
   getSpaceObject: (spaceObjectName) => null,
 }
+
+
 
 const determineNewPositionCoordinates = (
   positionX,
@@ -117,7 +119,8 @@ const positioning = {
     // The greatest of these two differences is the distance to the destination.
     return xDiff > yDiff ? xDiff : yDiff
   },
-  getDestinationInfo: (localData, x, y) => {
+  //TODO add localData param as first argument once ported to the real code...
+  getDestinationInfo: (x, y) => {
     // Kinds of destinations:
     // - "planet" = Landing on a planet surface coord
     // - "spacestation = landing on a spacestation surface coord
@@ -125,16 +128,23 @@ const positioning = {
     // - "" or "space" = Just somewhere in space...
 
     const spaceObjectName = localData.getLocation(x, y)
-    if (!spaceObjectName) return { kind: 'space' }
+    if (!spaceObjectName) return { destinationKind: 'space' }
 
     const spaceObject = localData.getSpaceObject(spaceObjectName)
-    if (!spaceObject) return { kind: 'space' }
+    if (!spaceObject) return { destinationKind: 'space' }
 
     return {
-      name: spaceObject.name,
-      kind: spaceObject.kind,
-      color: spaceObject.color,
+      destinationName: spaceObject.name,
+      destinationKind: spaceObject.kind,
+      destinationColor: spaceObject.color,
     }
+  },
+  clearDestinationInfo: (spaceship) => {
+    const updated = { ...spaceship }
+    updated.destinationName = null
+    updated.destinationKind = null
+    updated.destinationColor = null
+    return updated
   },
   clearDestination: (spaceship) => {
     const updated = { ...spaceship }
@@ -227,7 +237,7 @@ const machine = createMachine({
         SET_COURSE: [{
           actions: [
             'clearDirection',
-            'clearLocation',
+            'clearDestinationInfo',
             'setSpeed',
             'setDestination',
           ],
@@ -286,9 +296,6 @@ const machine = createMachine({
               actions: 'stop',
               target: '#idle',
             },
-            CHANGE_SPEED: {
-              actions: 'setSpeed',
-            },
           },
           states: {
             inDirection: {
@@ -301,6 +308,13 @@ const machine = createMachine({
                     'setLocation'
                   ],
                 },
+                CHANGE_SPEED: [{
+                  actions: 'setSpeed',
+                  target: '#idle',
+                  cond: 'isStopping'
+                }, {
+                  actions: 'setSpeed',
+                }],
               }
             },
             toDestination: {
@@ -311,14 +325,21 @@ const machine = createMachine({
                     'determineNewPositionTowardsDestination',
                     'calculateTotalDistanceTravelled',
                     'setLocation',
+                    'updateDistanceToDestination',
                     choose([{
                       cond: 'hasArrived',
-                      actions: 'stop'
-                    }, {
-                      actions: 'updateDistanceToDestination'
+                      actions: 'stop',
+                      target: '#idle',
                     }])
                   ],
                 },
+                CHANGE_SPEED: [{
+                  actions: 'setSpeed',
+                  target: '#idle',
+                  cond: 'isStopping'
+                }, {
+                  actions: 'setSpeed',
+                }],
               }
             }
           }
@@ -356,10 +377,10 @@ const machine = createMachine({
     clearDirection: assign((ctx) => ({
       ...ctx, ...positioning.clearDirection(ctx)
     })),
-    stop: assign({
-      speed: () => 0,
-      distanceToDestination: () => 0,
-    }),
+    clearDestinationInfo: assign((ctx) => ({
+      ...ctx, ...positioning.clearDestinationInfo(ctx)
+    })),
+    stop: assign({ speed: () => 0 }),
     determineNewPositionTowardsDirection: assign((ctx) => ({
       ...ctx, ...positioning.determineNewPositionTowardsDirection(ctx)
     })),
@@ -370,7 +391,6 @@ const machine = createMachine({
       ...ctx,
       totalDistanceTravelled: ctx.totalDistanceTravelled + ctx.speed,
     })),
-    clearLocation: assign({ location: null }),
     setLocation: assign({ location: (ctx) => positioning.getLocation(ctx) }),
     updateDistanceToDestination: assign({
       distanceToDestination: (ctx) => positioning.getDistanceToDestination(ctx)
@@ -392,7 +412,7 @@ const machine = createMachine({
       || (ctx.speed > 0 && !isNaN(ctx.destinationX))),
 
     // The spaceship had speed, but the event indicates the speed will become 0 now
-    isStopping: (_, e) => (ctx.speed > 0 && e.data.speed === 0),
+    isStopping: (ctx, e) => (ctx.speed > 0 && e.data.speed === 0),
 
     hasDirection: (ctx) => Boolean(ctx.direction),
 
@@ -424,6 +444,8 @@ const updateSpaceship = (spaceship, event, data) => {
 
 
 // Turn on the engine
+//TODO alle properties toevoegen en eventueel op null zetten, zodat altijd alle properties er zijn?
+//TODO De API en socket filtert dan alle null properties eruit
 const initial = {
   speed: 1,
   direction: 'right',
@@ -445,18 +467,15 @@ updated = updateSpaceship(updated, 'SET_COURSE', {
   speed: 12
 })
 
-// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 77 })
 
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
+// updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
 
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
+
 
 // TO DO Volgorde:
 // GO_TO_NEXT_POSITION + arriveren implementeren...
