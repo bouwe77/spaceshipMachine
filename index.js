@@ -119,9 +119,22 @@ const positioning = {
   //TODO getDestinationInfo overnemen
   getDestinationInfo: (x, y) => ({
     destinationName: 'Planet ' + x + ',' + y,
-    kind: 'kind',
-    color: 'color'
+    destinationKind: 'kind',
+    destinationColor: 'color'
   }),
+  clearDestination: (spaceship) => {
+    const updated = { ...spaceship }
+    updated.destinationX = undefined
+    updated.destinationY = undefined
+    updated.distanceToDestination = undefined
+    updated.destinationName = undefined
+    updated.destinationKind = undefined
+    updated.destinationColor = undefined
+
+console.log('🚨', updated)
+    
+    return updated
+  },
   getLocation: (spaceship) => {
     return localData.getLocation(
       spaceship.positionX,
@@ -131,7 +144,6 @@ const positioning = {
   isOnDestination: (spaceship) =>
     spaceship.positionX === spaceship.destinationX &&
     spaceship.positionY === spaceship.destinationY
-
 }
 
 const isValidSpeed = (speed) => speed >= 0 && speed <= 100
@@ -150,8 +162,6 @@ const isValidDirection = (direction) => [
 const isValidCoordinate = (coordinate) => !isNaN(coordinate?.x) && !isNaN(coordinate?.y)
 
 const isValidCourse = (course) => {
-
-
   if (typeof course.speed === 'undefined' && typeof course.destination === 'undefined') return false
 
   if (typeof course.speed !== 'undefined') {
@@ -209,11 +219,11 @@ const machine = createMachine({
           target: '#toDestination', //TODO alleen naar toDestination indien isTravellingToDestination
         },
         CHANGE_DIRECTION: [{
-          actions: 'setDirection',
+          actions: ['clearDestination', 'setDirection'],
           cond: 'isTravellingInDirection',
           target: '#inDirection',
         }, {
-          actions: 'setDirection'
+          actions: ['clearDestination', 'setDirection']
         }],
       },
       states: {
@@ -247,9 +257,6 @@ const machine = createMachine({
             }, {
               actions: 'setSpeed',
             }],
-            CHANGE_DIRECTION: {
-              actions: 'setDirection',
-            },
           }
         },
         travelling: {
@@ -322,6 +329,9 @@ const machine = createMachine({
         ...positioning.getDestinationInfo(dest.destinationX, dest.destinationY),
       }
     }),
+    clearDestination: assign((ctx) => ({
+      ...ctx, ...positioning.clearDestination(ctx)
+    })),
     stop: assign({
       speed: () => 0,
       distanceToDestination: () => 0,
@@ -416,12 +426,11 @@ updated = updateSpaceship(updated, 'SET_COURSE', {
   speed: 12
 })
 
-updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 77 })
+// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 77 })
 
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+//updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-//TODO Hier was ik: Deze evenet moet de destination clearen
-//TODO Waar wordt deze event uberhaupt afgevangen?
+//TODO CHANGE_DIRECTION moet de destination clearen
 updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
 
 
