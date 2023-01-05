@@ -8,8 +8,6 @@ const localData = {
   getSpaceObject: (spaceObjectName) => null,
 }
 
-
-
 const determineNewPositionCoordinates = (
   positionX,
   positionY,
@@ -252,8 +250,8 @@ const machine = createMachine({
         }],
         CHANGE_DIRECTION: [{
           actions: ['clearDestination', 'setDirection'],
-          cond: 'isTravellingInDirection',
           target: '#inDirection',
+          cond: 'isTravellingInDirection',
         }, {
           actions: ['clearDestination', 'setDirection']
         }],
@@ -270,33 +268,12 @@ const machine = createMachine({
               cond: 'isTravellingToDestination'
             },
             {
-              target: '#idle'
+              target: '#landed',
+              cond: 'hasLanded',
             }
           ],
         },
-        idle: {
-          id: "idle",
-          on: {
-            CHANGE_SPEED: [{
-              actions: 'setSpeed',
-              target: '#inDirection',
-              cond: 'isTravellingInDirection'
-            }, {
-              actions: 'setSpeed',
-              target: '#toDestination',
-              cond: 'isTravellingToDestination'
-            }, {
-              actions: 'setSpeed',
-            }],
-          }
-        },
         travelling: {
-          on: {
-            STOP: {
-              actions: 'stop',
-              target: '#idle',
-            },
-          },
           states: {
             inDirection: {
               id: "inDirection",
@@ -310,11 +287,18 @@ const machine = createMachine({
                 },
                 CHANGE_SPEED: [{
                   actions: 'setSpeed',
-                  target: '#idle',
+                  //TODO extra "pause" state voor speed 0, maar direction ingevuld laten.. 
+                  //target: '???',
                   cond: 'isStopping'
                 }, {
                   actions: 'setSpeed',
                 }],
+                STOP: {
+                  actions: 'stop',
+                  //TODO extra "pause" state voor speed 0, maar direction ingevuld laten.. 
+                  //target: '???',
+                  target: '#arrived',
+                },
               }
             },
             toDestination: {
@@ -326,24 +310,46 @@ const machine = createMachine({
                     'calculateTotalDistanceTravelled',
                     'setLocation',
                     'updateDistanceToDestination',
-                    choose([{
-                      cond: 'hasArrived',
-                      actions: 'stop',
-                      target: '#idle',
-                    }])
                   ],
+                  target: '#checkArrived',
                 },
                 CHANGE_SPEED: [{
                   actions: 'setSpeed',
-                  target: '#idle',
+                  //TODO extra "pause" state voor speed 0, maar destination ingevuld laten.. 
+                  //target: '???',
                   cond: 'isStopping'
                 }, {
                   actions: 'setSpeed',
                 }],
+                STOP: {
+                  actions: 'stop',
+                  //TODO extra "pause" state voor speed 0, maar destination ingevuld laten.. 
+                  //target: '???',
+                },
               }
-            }
+            },
+            checkArrived: {
+              id: 'checkArrived',
+              always: [{
+                target: '#landed',
+                actions: ['stop', 'clearDestination'],
+                cond: 'hasLanded',
+              }, {
+                target: '#arrived',
+                actions: ['stop', 'clearDestination'],
+                cond: 'hasArrived',
+              }, {
+                target: '#toDestination'
+              }]
+            },
           }
-        }
+        },
+        landed: {
+          id: 'landed',
+        },
+        arrived: {
+          id: 'arrived',
+        },
       }
     }
   }
@@ -399,13 +405,13 @@ const machine = createMachine({
   guards: {
     isEngineOn: (ctx) => ctx.status?.startsWith('engine_on:'),
 
-    // The current context and/or event data indicates the speceship was (or now is) travelling in a direction
+    // The current context and/or event data indicates the spaceship was (or now is) travelling in a direction
     isTravellingInDirection: (ctx, e) => (
       (e.data?.speed > 0 && Boolean(ctx.direction))
       || (ctx.speed > 0 && Boolean(e.data?.direction))
       || (ctx.speed > 0 && Boolean(ctx.direction))),
 
-    // The current context and/or event data indicates the speceship was (or now is) travelling to a destination
+    // The current context and/or event data indicates the spaceship was (or now is) travelling to a destination
     isTravellingToDestination: (ctx, e) => (
       (e.data?.speed > 0 && !isNaN(ctx.destinationX))
       || (ctx.speed > 0 && !isNaN(e.data?.destinationX))
@@ -416,7 +422,11 @@ const machine = createMachine({
 
     hasDirection: (ctx) => Boolean(ctx.direction),
 
-    hasArrived: (ctx) => positioning.isOnDestination(ctx),
+    //TODO hasLanded should check position is surface coord
+    hasLanded: (ctx) => positioning.isOnDestination(ctx),
+
+    //TODO hasArrived should check position === destination, and position is NOT surface coord
+    hasArrived: (ctx) => false,
 
     isValidCourse: (_, e) => isValidCourse(e.data),
   }
@@ -444,40 +454,39 @@ const updateSpaceship = (spaceship, event, data) => {
 
 
 // Turn on the engine
-//TODO alle properties toevoegen en eventueel op null zetten, zodat altijd alle properties er zijn?
+//TODO Bij spaceship creatie alle properties toevoegen en eventueel op null zetten, zodat altijd alle properties er zijn?
 //TODO De API en socket filtert dan alle null properties eruit
 const initial = {
   speed: 1,
   direction: 'right',
-  positionX: 0,
-  positionY: 0,
+  positionX: 100,
+  positionY: 319,
   totalDistanceTravelled: 0,
   location: null
 }
 
 let updated = updateSpaceship(initial, 'TURN_ON')
 
-updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
+// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
 
 updated = updateSpaceship(updated, 'SET_COURSE', {
   destination: {
     x: 102,
     y: 321
   },
-  speed: 12
+  // speed: 12
 })
 
 
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 // updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
 
 // updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
+// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
 
 
-// TO DO Volgorde:
-// GO_TO_NEXT_POSITION + arriveren implementeren...
 
 
