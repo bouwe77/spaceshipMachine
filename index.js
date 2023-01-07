@@ -277,6 +277,7 @@ const machine = createMachine({
           states: {
             inDirection: {
               id: "inDirection",
+              initial: 'checkSpeed1',
               on: {
                 GO_TO_NEXT_POSITION: {
                   actions: [
@@ -285,24 +286,34 @@ const machine = createMachine({
                     'setLocation'
                   ],
                 },
-                CHANGE_SPEED: [{
+                CHANGE_SPEED: {
                   actions: 'setSpeed',
-                  //TODO extra "pause" state voor speed 0, maar direction ingevuld laten.. 
-                  //target: '???',
-                  cond: 'isStopping'
-                }, {
-                  actions: 'setSpeed',
-                }],
+                  target: '#checkSpeed1',
+                },
                 STOP: {
                   actions: 'stop',
-                  //TODO extra "pause" state voor speed 0, maar direction ingevuld laten.. 
-                  //target: '???',
-                  target: '#arrived',
+                  target: '#checkSpeed1',
                 },
-              }
+              },
+              states: {
+                checkSpeed1: {
+                  //TODO kan ik 2x een checkSpeed state hebben, in zowel toDestination als inDirection?
+                  id: "checkSpeed1",
+                  always: [
+                    {
+                      target: 'going1',
+                      cond: 'hasSpeed'
+                    }, {
+                      target: 'idle1'
+                    }]
+                },
+                idle1: {},
+                going1: {}
+              },
             },
             toDestination: {
               id: "toDestination",
+              initial: 'checkSpeed2',
               on: {
                 GO_TO_NEXT_POSITION: {
                   actions: [
@@ -313,20 +324,30 @@ const machine = createMachine({
                   ],
                   target: '#checkArrived',
                 },
-                CHANGE_SPEED: [{
+                CHANGE_SPEED: {
                   actions: 'setSpeed',
-                  //TODO extra "pause" state voor speed 0, maar destination ingevuld laten.. 
-                  //target: '???',
-                  cond: 'isStopping'
-                }, {
-                  actions: 'setSpeed',
-                }],
+                  target: '#checkSpeed1',
+                },
                 STOP: {
                   actions: 'stop',
-                  //TODO extra "pause" state voor speed 0, maar destination ingevuld laten.. 
-                  //target: '???',
+                  target: '#checkSpeed1',
                 },
-              }
+              },
+              states: {
+                checkSpeed2: {
+                  //TODO kan ik 2x een checkSpeed state hebben, in zowel toDestination als inDirection?
+                  id: "checkSpeed2",
+                  always: [
+                    {
+                      target: 'going2',
+                      cond: 'hasSpeed'
+                    }, {
+                      target: 'idle2'
+                    }]
+                },
+                idle2: {},
+                going2: {}
+              },
             },
             checkArrived: {
               id: 'checkArrived',
@@ -409,16 +430,21 @@ const machine = createMachine({
     isTravellingInDirection: (ctx, e) => (
       (e.data?.speed > 0 && Boolean(ctx.direction))
       || (ctx.speed > 0 && Boolean(e.data?.direction))
-      || (ctx.speed > 0 && Boolean(ctx.direction))),
+      || (ctx.speed > 0 && Boolean(ctx.direction))
+    ),
 
     // The current context and/or event data indicates the spaceship was (or now is) travelling to a destination
-    isTravellingToDestination: (ctx, e) => (
-      (e.data?.speed > 0 && !isNaN(ctx.destinationX))
+    isTravellingToDestination: (ctx, e) => {
+      console.log('🚨',ctx,e.data)
+ return (     (e.data?.speed > 0 && !isNaN(ctx.destinationX))
       || (ctx.speed > 0 && !isNaN(e.data?.destinationX))
-      || (ctx.speed > 0 && !isNaN(ctx.destinationX))),
+      || (ctx.speed > 0 && !isNaN(ctx.destinationX))
+    )},
 
     // The spaceship had speed, but the event indicates the speed will become 0 now
     isStopping: (ctx, e) => (ctx.speed > 0 && e.data.speed === 0),
+
+    hasSpeed: (ctx) => ctx.speed > 0,
 
     hasDirection: (ctx) => Boolean(ctx.direction),
 
@@ -467,25 +493,23 @@ const initial = {
 
 let updated = updateSpaceship(initial, 'TURN_ON')
 
-// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 10 })
-
 updated = updateSpaceship(updated, 'SET_COURSE', {
   destination: {
     x: 102,
     y: 321
   },
-  // speed: 12
+   speed: 12
 })
 
 
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-// updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
 
 // updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
+updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
+updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
 
 
 
