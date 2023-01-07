@@ -418,6 +418,7 @@ const machine = createMachine({
     isEngineOn: (ctx) => ctx.status?.startsWith('engine_on:'),
 
     // The current context and/or event data indicates the spaceship was (or now is) travelling in a direction
+    //TODO Kan ik isTravellingInDirection en isTravellingToDestination niet ditchen?
     isTravellingInDirection: (ctx, e) => (
       (e.data?.speed > 0 && Boolean(ctx.direction))
       || (ctx.speed > 0 && Boolean(e.data?.direction))
@@ -430,9 +431,6 @@ const machine = createMachine({
       || (ctx.speed > 0 && !isNaN(e.data?.destinationX))
       || (ctx.speed > 0 && !isNaN(ctx.destinationX))
     ),
-
-    // The spaceship had speed, but the event indicates the speed will become 0 now
-    isStopping: (ctx, e) => (ctx.speed > 0 && e.data.speed === 0),
 
     hasSpeed: (ctx) => ctx.speed > 0,
 
