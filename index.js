@@ -241,31 +241,19 @@ const machine = createMachine({
           ],
           target: '#toDestination',
         },
-        CHANGE_DIRECTION: [{
+        CHANGE_DIRECTION: {
           actions: ['clearDestination', 'setDirection'],
           target: '#inDirection',
-          cond: 'isTravellingInDirection',
-        }, {
-          actions: ['clearDestination', 'setDirection']
-        }],
+        },
       },
       states: {
         init: {
           always: [
-            {
-              target: '#inDirection',
-              cond: 'isTravellingInDirection'
-            },
-            {
-              target: '#toDestination',
-              cond: 'isTravellingToDestination'
-            },
-            {
-              target: '#landed',
-              cond: 'hasLanded',
-            }
+            //TODO: Op basis van "status" veld naar de juiste state gaan:
+            // https://xstate.js.org/docs/guides/states.html#persisting-state
           ],
         },
+        idle: {},
         travelling: {
           states: {
             inDirection: {
@@ -471,32 +459,39 @@ const updateSpaceship = (spaceship, event, data) => {
 //TODO Bij spaceship creatie alle properties toevoegen en eventueel op null zetten, zodat altijd alle properties er zijn?
 //TODO De API en socket filtert dan alle null properties eruit
 const initial = {
-  speed: 1,
-  direction: 'upleft',
+  status: 'engine_off',
+  speed: 0,
+  direction: null,
   positionX: 100,
   positionY: 319,
   totalDistanceTravelled: 0,
   location: null
 }
 
+console.log(initial)
+
 let updated = updateSpaceship(initial, 'TURN_ON')
 
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+// updated = updateSpaceship(initial, 'TURN_OFF')
 
-updated = updateSpaceship(updated, 'SET_COURSE', {
-  destination: {
-    x: 102,
-    y: 321
-  },
-  // speed: 12
-})
-
+updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
 
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+
+// updated = updateSpaceship(updated, 'SET_COURSE', {
+//   destination: {
+//     x: 102,
+//     y: 321
+//   },
+//   // speed: 12
+// })
 
 
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+
+
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 // updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
 // updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
