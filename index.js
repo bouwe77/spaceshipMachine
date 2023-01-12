@@ -1,4 +1,4 @@
-import { createMachine, interpret, assign, actions } from "xstate"
+import { createMachine, interpret, assign, actions, State } from "xstate"
 
 const { choose } = actions
 
@@ -201,23 +201,17 @@ const isValidCourse = (course) => {
   return true
 }
 
-const machine = createMachine({
+const spaceshipMachine = createMachine({
   predictableActionArguments: true,
   id: "machine",
-  initial: 'init',
+  initial: 'engine_off',
   context: {},
+  on: {
+    CREATE_SPACESHIP: {
+HIERO HIERO HIERO       //TODO implement create spaceship
+    }
+  },
   states: {
-    init: {
-      always: [
-        {
-          target: 'engine_on',
-          cond: 'isEngineOn'
-        },
-        {
-          target: 'engine_off'
-        }
-      ],
-    },
     engine_off: {
       on: {
         TURN_ON: {
@@ -226,7 +220,7 @@ const machine = createMachine({
       }
     },
     engine_on: {
-      initial: 'init',
+      initial: 'idle',
       on: {
         TURN_OFF: {
           actions: 'stop',
@@ -247,12 +241,6 @@ const machine = createMachine({
         },
       },
       states: {
-        init: {
-          always: [
-            //TODO: Op basis van "status" veld naar de juiste state gaan:
-            // https://xstate.js.org/docs/guides/states.html#persisting-state
-          ],
-        },
         idle: {},
         travelling: {
           states: {
@@ -405,21 +393,6 @@ const machine = createMachine({
   guards: {
     isEngineOn: (ctx) => ctx.status?.startsWith('engine_on:'),
 
-    // The current context and/or event data indicates the spaceship was (or now is) travelling in a direction
-    //TODO Kan ik isTravellingInDirection en isTravellingToDestination niet ditchen?
-    isTravellingInDirection: (ctx, e) => (
-      (e.data?.speed > 0 && Boolean(ctx.direction))
-      || (ctx.speed > 0 && Boolean(e.data?.direction))
-      || (ctx.speed > 0 && Boolean(ctx.direction))
-    ),
-
-    // The current context and/or event data indicates the spaceship was (or now is) travelling to a destination
-    isTravellingToDestination: (ctx, e) => (
-      (e.data?.speed > 0 && !isNaN(ctx.destinationX))
-      || (ctx.speed > 0 && !isNaN(e.data?.destinationX))
-      || (ctx.speed > 0 && !isNaN(ctx.destinationX))
-    ),
-
     hasSpeed: (ctx) => ctx.speed > 0,
 
     hasDirection: (ctx) => Boolean(ctx.direction),
@@ -435,7 +408,11 @@ const machine = createMachine({
 })
 
 const updateSpaceship = (spaceship, event, data) => {
-  const service = interpret(machine.withContext(spaceship)).start()
+  const restoredState = spaceship.internalState
+    ? State.create(spaceship.internalState)
+    : spaceshipMachine.initialState;
+
+  const service = interpret(spaceshipMachine).start(restoredState);
 
   const nextState = data
     ? service.send({ type: event, data: { ...data } })
@@ -447,17 +424,19 @@ const updateSpaceship = (spaceship, event, data) => {
       .replaceAll('{', '')
       .replaceAll('}', '')
       .replaceAll('"', '')
-      .toLowerCase()
+      .toLowerCase(),
+    internalState: JSON.stringify(nextState)
   }
 
-  console.log(updatedSpaceship)
+
+  let { internalState, ...spaceshipForLogging } = updatedSpaceship;
+  console.log(spaceshipForLogging)
+
   return updatedSpaceship
 }
 
 
 // Turn on the engine
-//TODO Bij spaceship creatie alle properties toevoegen en eventueel op null zetten, zodat altijd alle properties er zijn?
-//TODO De API en socket filtert dan alle null properties eruit
 const initial = {
   status: 'engine_off',
   speed: 0,
@@ -468,15 +447,15 @@ const initial = {
   location: null
 }
 
-console.log(initial)
+// console.log(initial)
 
 let updated = updateSpaceship(initial, 'TURN_ON')
 
 // updated = updateSpaceship(initial, 'TURN_OFF')
 
-updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
+// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
 
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 // updated = updateSpaceship(updated, 'SET_COURSE', {
 //   destination: {
