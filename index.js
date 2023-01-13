@@ -8,6 +8,12 @@ const localData = {
   getSpaceObject: (spaceObjectName) => null,
 }
 
+const getRandomPosition = () => ({ x: 100, y: 100 })
+
+const colors = {
+  getColor: () => 'blue'
+}
+
 const determineNewPositionCoordinates = (
   positionX,
   positionY,
@@ -206,11 +212,11 @@ const spaceshipMachine = createMachine({
   id: "machine",
   initial: 'engine_off',
   context: {},
-  on: {
-    CREATE_SPACESHIP: {
-HIERO HIERO HIERO       //TODO implement create spaceship
-    }
-  },
+  // on: {
+  //   INIT_CREATED_SPACESHIP: {
+  //     target: 'engine_off'
+  //   }
+  // },
   states: {
     engine_off: {
       on: {
@@ -241,7 +247,13 @@ HIERO HIERO HIERO       //TODO implement create spaceship
         },
       },
       states: {
-        idle: {},
+        idle: {
+          on: {
+            CHANGE_SPEED: {
+              actions: 'setSpeed',
+            },
+          }
+        },
         travelling: {
           states: {
             inDirection: {
@@ -407,53 +419,71 @@ HIERO HIERO HIERO       //TODO implement create spaceship
   }
 })
 
-const updateSpaceship = (spaceship, event, data) => {
-  const restoredState = spaceship.internalState
-    ? State.create(spaceship.internalState)
-    : spaceshipMachine.initialState;
+const getStatus = (state) => {
+  return JSON.stringify(state)
+    .replaceAll('{', '')
+    .replaceAll('}', '')
+    .replaceAll('"', '')
+    .toLowerCase()
+}
 
-  const service = interpret(spaceshipMachine).start(restoredState);
+const updateSpaceship = (spaceship, event, data) => {
+  const restoredState = State.create(JSON.parse(spaceship))
+  const service = interpret(spaceshipMachine).start(restoredState)
 
   const nextState = data
     ? service.send({ type: event, data: { ...data } })
     : service.send(event)
 
-  const updatedSpaceship = {
-    ...nextState.context,
-    status: JSON.stringify(nextState.value)
-      .replaceAll('{', '')
-      .replaceAll('}', '')
-      .replaceAll('"', '')
-      .toLowerCase(),
-    internalState: JSON.stringify(nextState)
-  }
+  console.log({ speed: nextState.context.speed, status: getStatus(nextState.value) })
 
+  const stuff = JSON.stringify(nextState)
 
-  let { internalState, ...spaceshipForLogging } = updatedSpaceship;
-  console.log(spaceshipForLogging)
+  return stuff
+}
 
-  return updatedSpaceship
+const initializeNewSpaceship = (spaceship) => {
+  const service = interpret(spaceshipMachine.withContext(spaceship)).start()
+
+  const initialState = service.getSnapshot()
+
+  console.log({ speed: initialState.context.speed, status: getStatus(initialState.value) })
+
+  const stuff = JSON.stringify(initialState)
+
+  return stuff
 }
 
 
-// Turn on the engine
-const initial = {
-  status: 'engine_off',
+// The initial spaceship is the object that is defined when a spaceship is created, but not yet saved
+const location = 'Gulvianus'
+const position = getRandomPosition(location)
+const initialSpaceship = {
+  name: 'Defiant',
+  owner: 'Bouwe',
+  positionX: position.x,
+  positionY: position.y,
   speed: 0,
-  direction: null,
-  positionX: 100,
-  positionY: 319,
+  destinationX: 0,
+  destinationY: 0,
+  maxSpeed: 1,
+  color: colors.getColor(),
+  location,
+  distanceToDestination: 0,
+  destinationKind: null,
+  destinationName: null,
+  destinationColor: null,
   totalDistanceTravelled: 0,
-  location: null
+  direction: null,
+  // status: 'engine_off',
+  // internalState: null, //TODO state machine will do this
 }
 
-// console.log(initial)
+let updated = initializeNewSpaceship(initialSpaceship)
 
-let updated = updateSpaceship(initial, 'TURN_ON')
+updated = updateSpaceship(updated, 'TURN_ON')
 
-// updated = updateSpaceship(initial, 'TURN_OFF')
-
-// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
+updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
 
 // updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
