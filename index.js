@@ -430,28 +430,39 @@ const getStatus = (state) => {
 }
 
 // IMPORTANT: This getSpaceshipPayload needs to be used for the API en socket to return a spaceship object
-const getSpaceshipPayload = (spaceshipSnapshot) => {
-  const parsed = JSON.parse(spaceshipSnapshot)
+const getSpaceshipPayload = (spaceship) => {
+  const parsed = JSON.parse(spaceship.snapshot)
 
   return {
     ...parsed.context,
-    status: getStatus(parsed.value)
+    status: spaceship.status
   }
 }
 
 const updateSpaceship = (spaceship, event, data) => {
-  const restoredState = State.create(JSON.parse(spaceship))
+  const restoredState = State.create(JSON.parse(spaceship.snapshot))
   const service = interpret(spaceshipMachine).start(restoredState)
 
   const nextState = data
     ? service.send({ type: event, data: { ...data } })
     : service.send(event)
 
-  const spaceshipSnapshotString = JSON.stringify(nextState)
+  delete nextState.history
+  delete nextState.historyValue
 
-  logSpaceship(getSpaceshipPayload(spaceshipSnapshotString))
+  const snapshot = JSON.stringify(nextState)
 
-  return spaceshipSnapshotString
+  const spaceshipToPersist = {
+    name: nextState.context.name,
+    status: getStatus(nextState.value),
+    snapshot
+  }
+
+  logSpaceship(getSpaceshipPayload(spaceshipToPersist))
+
+  // console.log(spaceshipToPersist)
+
+  return spaceshipToPersist
 }
 
 const initializeNewSpaceship = (spaceship) => {
@@ -459,11 +470,19 @@ const initializeNewSpaceship = (spaceship) => {
 
   const initialState = service.getSnapshot()
 
-  const spaceshipSnapshotString = JSON.stringify(initialState)
+  const snapshot = JSON.stringify(initialState)
 
-  logSpaceship(getSpaceshipPayload(spaceshipSnapshotString))
+  const spaceshipToPersist = {
+    name: initialState.context.name,
+    status: getStatus(initialState.value),
+    snapshot
+  }
 
-  return spaceshipSnapshotString
+  logSpaceship(getSpaceshipPayload(spaceshipToPersist))
+
+  // console.log(spaceshipToPersist)
+
+  return spaceshipToPersist
 }
 
 // The initial spaceship is the object that is defined when a spaceship is created, but not yet saved
@@ -505,13 +524,13 @@ updated = updateSpaceship(updated, 'SET_COURSE', {
 })
 
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 // TODO Ik ga left, dus state wordt indirection, maar als speed 0 wordt ga ik naar todestination:idle... Neemt checkSpeed een verkeerde afslag?
-updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
-updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
+//updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
+//updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
 
 
 
