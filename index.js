@@ -264,16 +264,15 @@ const spaceshipMachine = createMachine({
                 },
                 CHANGE_SPEED: {
                   actions: 'setSpeed',
-                  target: '#checkSpeed',
+                  target: '.checkSpeed',
                 },
                 STOP: {
                   actions: 'stop',
-                  target: '#checkSpeed',
+                  target: '.checkSpeed',
                 },
               },
               states: {
                 checkSpeed: {
-                  id: "checkSpeed",
                   always: [
                     {
                       target: 'going',
@@ -282,8 +281,8 @@ const spaceshipMachine = createMachine({
                       target: 'idle'
                     }]
                 },
-                idle: {},
-                going: {}
+                idle: { },
+                going: { }
               },
             },
             toDestination: {
@@ -301,16 +300,15 @@ const spaceshipMachine = createMachine({
                 },
                 CHANGE_SPEED: {
                   actions: 'setSpeed',
-                  target: '#checkSpeed',
+                  target: '.checkSpeed',
                 },
                 STOP: {
                   actions: 'stop',
-                  target: '#checkSpeed',
+                  target: '.checkSpeed',
                 },
               },
               states: {
                 checkSpeed: {
-                  id: "checkSpeed",
                   always: [
                     {
                       target: 'going',
@@ -431,10 +429,10 @@ const getStatus = (state) => {
 
 // IMPORTANT: This getSpaceshipPayload needs to be used for the API en socket to return a spaceship object
 const getSpaceshipPayload = (spaceship) => {
-  const parsed = JSON.parse(spaceship.snapshot)
+  const spaceshipData = JSON.parse(spaceship.snapshot).context
 
   return {
-    ...parsed.context,
+    ...spaceshipData,
     status: spaceship.status
   }
 }
@@ -520,18 +518,14 @@ updated = updateSpaceship(updated, 'SET_COURSE', {
     x: 300,
     y: 300
   },
-  // speed: 12
+  // speed: 1
 })
 
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-
-// TODO Ik ga left, dus state wordt indirection, maar als speed 0 wordt ga ik naar todestination:idle... Neemt checkSpeed een verkeerde afslag?
-//updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
-//updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
-
+updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
 
 
 
