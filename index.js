@@ -212,11 +212,6 @@ const spaceshipMachine = createMachine({
   id: "machine",
   initial: 'engine_off',
   context: {},
-  // on: {
-  //   INIT_CREATED_SPACESHIP: {
-  //     target: 'engine_off'
-  //   }
-  // },
   states: {
     engine_off: {
       on: {
@@ -403,8 +398,6 @@ const spaceshipMachine = createMachine({
     })
   },
   guards: {
-    isEngineOn: (ctx) => ctx.status?.startsWith('engine_on:'),
-
     hasSpeed: (ctx) => ctx.speed > 0,
 
     hasDirection: (ctx) => Boolean(ctx.direction),
@@ -424,7 +417,7 @@ const logSpaceship = spaceship => {
     speed: spaceship.speed,
     positionX: spaceship.positionX,
     positionY: spaceship.positionY,
-    // status: getStatus(nextState.value) 
+    status: spaceship.status
   })
 }
 
@@ -436,6 +429,16 @@ const getStatus = (state) => {
     .toLowerCase()
 }
 
+// IMPORTANT: This getSpaceshipPayload needs to be used for the API en socket to return a spaceship object
+const getSpaceshipPayload = (spaceshipSnapshot) => {
+  const parsed = JSON.parse(spaceshipSnapshot)
+
+  return {
+    ...parsed.context,
+    status: getStatus(parsed.value)
+  }
+}
+
 const updateSpaceship = (spaceship, event, data) => {
   const restoredState = State.create(JSON.parse(spaceship))
   const service = interpret(spaceshipMachine).start(restoredState)
@@ -444,11 +447,11 @@ const updateSpaceship = (spaceship, event, data) => {
     ? service.send({ type: event, data: { ...data } })
     : service.send(event)
 
-  logSpaceship(nextState.context)
+  const spaceshipSnapshotString = JSON.stringify(nextState)
 
-  const stuff = JSON.stringify(nextState)
+  logSpaceship(getSpaceshipPayload(spaceshipSnapshotString))
 
-  return stuff
+  return spaceshipSnapshotString
 }
 
 const initializeNewSpaceship = (spaceship) => {
@@ -456,13 +459,12 @@ const initializeNewSpaceship = (spaceship) => {
 
   const initialState = service.getSnapshot()
 
-  logSpaceship(initialState.context)
+  const spaceshipSnapshotString = JSON.stringify(initialState)
 
-  const stuff = JSON.stringify(initialState)
+  logSpaceship(getSpaceshipPayload(spaceshipSnapshotString))
 
-  return stuff
+  return spaceshipSnapshotString
 }
-
 
 // The initial spaceship is the object that is defined when a spaceship is created, but not yet saved
 const location = 'Gulvianus'
@@ -484,8 +486,9 @@ const initialSpaceship = {
   destinationColor: null,
   totalDistanceTravelled: 0,
   direction: null,
-  // status: 'engine_off',
 }
+
+//TODO Does the machine contain actions/guards/etc. that are not used anymore?
 
 let updated = initializeNewSpaceship(initialSpaceship)
 
@@ -493,25 +496,22 @@ updated = updateSpaceship(updated, 'TURN_ON')
 
 updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
 
-// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-
 updated = updateSpaceship(updated, 'SET_COURSE', {
   destination: {
-    x: 102,
-    y: 321
+    x: 300,
+    y: 300
   },
   // speed: 12
 })
 
-
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-
-// updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
-// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
+// TODO Ik ga left, dus state wordt indirection, maar als speed 0 wordt ga ik naar todestination:idle... Neemt checkSpeed een verkeerde afslag?
+updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
+updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
 
 
 
