@@ -398,8 +398,6 @@ const spaceshipMachine = createMachine({
   guards: {
     hasSpeed: (ctx) => ctx.speed > 0,
 
-    hasDirection: (ctx) => Boolean(ctx.direction),
-
     //TODO hasLanded should check position is surface coord
     hasLanded: (ctx) => positioning.isOnDestination(ctx),
 
