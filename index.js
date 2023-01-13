@@ -419,6 +419,15 @@ const spaceshipMachine = createMachine({
   }
 })
 
+const logSpaceship = spaceship => {
+  console.log({
+    speed: spaceship.speed,
+    positionX: spaceship.positionX,
+    positionY: spaceship.positionY,
+    // status: getStatus(nextState.value) 
+  })
+}
+
 const getStatus = (state) => {
   return JSON.stringify(state)
     .replaceAll('{', '')
@@ -435,7 +444,7 @@ const updateSpaceship = (spaceship, event, data) => {
     ? service.send({ type: event, data: { ...data } })
     : service.send(event)
 
-  console.log({ speed: nextState.context.speed, status: getStatus(nextState.value) })
+  logSpaceship(nextState.context)
 
   const stuff = JSON.stringify(nextState)
 
@@ -447,7 +456,7 @@ const initializeNewSpaceship = (spaceship) => {
 
   const initialState = service.getSnapshot()
 
-  console.log({ speed: initialState.context.speed, status: getStatus(initialState.value) })
+  logSpaceship(initialState.context)
 
   const stuff = JSON.stringify(initialState)
 
@@ -476,7 +485,6 @@ const initialSpaceship = {
   totalDistanceTravelled: 0,
   direction: null,
   // status: 'engine_off',
-  // internalState: null, //TODO state machine will do this
 }
 
 let updated = initializeNewSpaceship(initialSpaceship)
@@ -487,17 +495,17 @@ updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
 
 // updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
-// updated = updateSpaceship(updated, 'SET_COURSE', {
-//   destination: {
-//     x: 102,
-//     y: 321
-//   },
-//   // speed: 12
-// })
+updated = updateSpaceship(updated, 'SET_COURSE', {
+  destination: {
+    x: 102,
+    y: 321
+  },
+  // speed: 12
+})
 
 
-// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
 
 
 // updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
