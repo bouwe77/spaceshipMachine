@@ -1,6 +1,5 @@
 import { createMachine, interpret, assign, actions, State } from "xstate"
 
-const { choose } = actions
 
 // Stub implementation for localData
 const localData = {
@@ -8,12 +7,15 @@ const localData = {
   getSpaceObject: (spaceObjectName) => null,
 }
 
+// Stub implementation of getRandomPosition
 const getRandomPosition = () => ({ x: 100, y: 100 })
 
+// Stub implementation of colors
 const colors = {
   getColor: () => 'blue'
 }
 
+// This is a copy of a local function in positioning
 const determineNewPositionCoordinates = (
   positionX,
   positionY,
@@ -235,6 +237,7 @@ const spaceshipMachine = createMachine({
             'setDestination',
           ],
           target: '#toDestination',
+          cond: 'isValidCourse'
         },
         CHANGE_DIRECTION: {
           actions: ['clearDestination', 'setDirection'],
@@ -281,8 +284,8 @@ const spaceshipMachine = createMachine({
                       target: 'idle'
                     }]
                 },
-                idle: { },
-                going: { }
+                idle: {},
+                going: {}
               },
             },
             toDestination: {
@@ -317,23 +320,23 @@ const spaceshipMachine = createMachine({
                       target: 'idle'
                     }]
                 },
+                checkArrived: {
+                  id: 'checkArrived',
+                  always: [{
+                    target: '#landed',
+                    actions: ['stop', 'clearDestination'],
+                    cond: 'hasLanded',
+                  }, {
+                    target: '#arrived',
+                    actions: ['stop', 'clearDestination'],
+                    cond: 'hasArrived',
+                  }, {
+                    target: '#toDestination'
+                  }]
+                },
                 idle: {},
                 going: {}
               },
-            },
-            checkArrived: {
-              id: 'checkArrived',
-              always: [{
-                target: '#landed',
-                actions: ['stop', 'clearDestination'],
-                cond: 'hasLanded',
-              }, {
-                target: '#arrived',
-                actions: ['stop', 'clearDestination'],
-                cond: 'hasArrived',
-              }, {
-                target: '#toDestination'
-              }]
             },
           }
         },
@@ -349,7 +352,7 @@ const spaceshipMachine = createMachine({
 }, {
   actions: {
     setSpeed: assign({
-      speed: (ctx, e) => isValidSpeed(e.data.speed)
+      speed: (ctx, e) => isValidSpeed(e.data.speed) && e.data.speed <= ctx.maxSpeed
         ? e.data.speed
         : ctx.speed
     }),
@@ -492,7 +495,7 @@ const initialSpaceship = {
   speed: 0,
   destinationX: 0,
   destinationY: 0,
-  maxSpeed: 1,
+  maxSpeed: 10,
   color: colors.getColor(),
   location,
   distanceToDestination: 0,
@@ -505,25 +508,31 @@ const initialSpaceship = {
 
 //TODO Does the machine contain actions/guards/etc. that are not used anymore?
 
-let updated = initializeNewSpaceship(initialSpaceship)
+let initial = initializeNewSpaceship(initialSpaceship)
 
-updated = updateSpaceship(updated, 'TURN_ON')
+//console.log(initial)
 
-updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
+let updated = updateSpaceship(initial, 'TURN_ON')
+// let updated = updateSpaceship(initial, 'TURN_OFF')
+
+
+ updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 1 })
 
 updated = updateSpaceship(updated, 'SET_COURSE', {
   destination: {
-    x: 300,
-    y: 300
+    x: 102,
+    y: 101
   },
   // speed: 1
 })
 
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-
-updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
 updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
-updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
+console.log(updated)
+
+// // updated = updateSpaceship(updated, 'CHANGE_DIRECTION', { direction: 'left' })
+// updated = updateSpaceship(updated, 'GO_TO_NEXT_POSITION')
+// updated = updateSpaceship(updated, 'CHANGE_SPEED', { speed: 0 })
 
 
 
